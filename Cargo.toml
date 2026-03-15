@@ -1,0 +1,17 @@
+[package]
+name = "candle-swin"
+version = "0.1.0"
+edition = "2024"
+description = "Swin Transformer V1 for Hugging Face Candle"
+license = "Apache-2.0"
+repository = "https://github.com/developer0hye/candle-swin"
+keywords = ["deep-learning", "swin-transformer", "candle", "vision-transformer"]
+categories = ["science"]
+
+[dependencies]
+candle-core = "0.9"
+candle-nn = "0.9"
+
+[dev-dependencies]
+anyhow = "1"
+safetensors = "0.5"
