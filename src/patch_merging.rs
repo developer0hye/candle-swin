@@ -58,17 +58,29 @@ impl PatchMerging {
         let new_h: usize = h_padded / 2;
         let new_w: usize = w_padded / 2;
 
-        // Stride-2 subsampling: extract 4 sub-patches
-        // x[:, 0::2, 0::2, :] — candle doesn't have stride slicing, so use narrow + reshape
-        let x: Tensor = x.reshape((b, new_h, 2, new_w, 2, c))?;
-        let x: Tensor = x.permute((0, 1, 3, 2, 4, 5))?; // [B, new_h, new_w, 2, 2, C]
-        let x: Tensor = x.reshape((b, new_h, new_w, 4, c))?;
-
-        // Split the 4 sub-patches and concatenate along channel dim
-        let x0: Tensor = x.narrow(3, 0, 1)?.squeeze(3)?; // [B, new_h, new_w, C] — (0,0)
-        let x1: Tensor = x.narrow(3, 1, 1)?.squeeze(3)?; // (1,0)
-        let x2: Tensor = x.narrow(3, 2, 1)?.squeeze(3)?; // (0,1)
-        let x3: Tensor = x.narrow(3, 3, 1)?.squeeze(3)?; // (1,1)
+        // Stride-2 subsampling: x[:, 0::2, 0::2, :], x[:, 1::2, 0::2, :], etc.
+        // Reshape [B, H, W, C] -> [B, H/2, 2, W/2, 2, C], then index dim 2 and dim 4
+        let x_reshaped: Tensor = x.reshape((b, new_h, 2, new_w, 2, c))?;
+        // x0 = x[:, 0::2, 0::2, :] = x_reshaped[:, :, 0, :, 0, :]
+        let x0: Tensor = x_reshaped
+            .narrow(2, 0, 1)?
+            .narrow(4, 0, 1)?
+            .reshape((b, new_h, new_w, c))?;
+        // x1 = x[:, 1::2, 0::2, :] = x_reshaped[:, :, 1, :, 0, :]
+        let x1: Tensor = x_reshaped
+            .narrow(2, 1, 1)?
+            .narrow(4, 0, 1)?
+            .reshape((b, new_h, new_w, c))?;
+        // x2 = x[:, 0::2, 1::2, :] = x_reshaped[:, :, 0, :, 1, :]
+        let x2: Tensor = x_reshaped
+            .narrow(2, 0, 1)?
+            .narrow(4, 1, 1)?
+            .reshape((b, new_h, new_w, c))?;
+        // x3 = x[:, 1::2, 1::2, :] = x_reshaped[:, :, 1, :, 1, :]
+        let x3: Tensor = x_reshaped
+            .narrow(2, 1, 1)?
+            .narrow(4, 1, 1)?
+            .reshape((b, new_h, new_w, c))?;
         let x: Tensor = Tensor::cat(&[&x0, &x1, &x2, &x3], 3)?; // [B, new_h, new_w, 4*C]
         let x: Tensor = x.reshape((b, new_h * new_w, 4 * c))?;
 
