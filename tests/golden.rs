@@ -189,24 +189,13 @@ fn golden_swin_block_shifted() -> Result<()> {
 // Full SwinTransformer
 // ============================================================================
 
-#[test]
-fn golden_swin_tiny_full() -> Result<()> {
-    let data = load_test_case("swin_tiny_full");
+fn run_swin_variant_test(
+    name: &str,
+    config: candle_swin::swin_transformer::SwinTransformerConfig,
+) -> Result<()> {
+    let data = load_test_case(name);
     let (_varmap, vb) = vb_from_params(&data);
 
-    let config = candle_swin::swin_transformer::SwinTransformerConfig {
-        patch_size: 4,
-        in_channels: 3,
-        embed_dim: 96,
-        depths: vec![2, 2, 2, 2], // Reduced depths matching test data
-        num_heads: vec![3, 6, 12, 24],
-        window_size: 7,
-        mlp_ratio: 4.0,
-        qkv_bias: true,
-        drop_rate: 0.0,
-        attn_drop_rate: 0.0,
-        out_indices: vec![0, 1, 2, 3],
-    };
     let model = candle_swin::SwinTransformer::new(&config, vb)?;
     let outputs = model.forward(&data["input"])?;
 
@@ -217,11 +206,43 @@ fn golden_swin_tiny_full() -> Result<()> {
         assert_eq!(
             outputs[i].dims(),
             expected.dims(),
-            "shape mismatch at stage {i}"
+            "{name} shape mismatch at stage {i}"
         );
         assert_tensor_close(&outputs[i], expected, 1e-3);
     }
     Ok(())
+}
+
+#[test]
+fn golden_swin_tiny_full() -> Result<()> {
+    run_swin_variant_test(
+        "swin_tiny_full",
+        candle_swin::swin_transformer::SwinTransformerConfig::tiny(),
+    )
+}
+
+#[test]
+fn golden_swin_small_full() -> Result<()> {
+    run_swin_variant_test(
+        "swin_small_full",
+        candle_swin::swin_transformer::SwinTransformerConfig::small(),
+    )
+}
+
+#[test]
+fn golden_swin_base_full() -> Result<()> {
+    run_swin_variant_test(
+        "swin_base_full",
+        candle_swin::swin_transformer::SwinTransformerConfig::base(),
+    )
+}
+
+#[test]
+fn golden_swin_large_full() -> Result<()> {
+    run_swin_variant_test(
+        "swin_large_full",
+        candle_swin::swin_transformer::SwinTransformerConfig::large(),
+    )
 }
 
 // ============================================================================

@@ -1,4 +1,4 @@
-//! Detailed error analysis for BiRefNet backbone comparison.
+//! Detailed error analysis for all Swin variants and BiRefNet backbone.
 //! Run with: cargo test --test error_analysis -- --nocapture
 
 use candle_core::{DType, Device, Result, Tensor, Var};
@@ -41,17 +41,19 @@ fn vb_from_params(data: &HashMap<String, Tensor>) -> (VarMap, VarBuilder<'_>) {
     (varmap, vb)
 }
 
-#[test]
-fn analyze_birefnet_backbone_error() -> Result<()> {
-    let data = load_test_case("birefnet_swin_backbone");
+fn analyze_variant(
+    label: &str,
+    test_data_name: &str,
+    config: candle_swin::swin_transformer::SwinTransformerConfig,
+) -> Result<()> {
+    let data = load_test_case(test_data_name);
     let (_varmap, vb) = vb_from_params(&data);
 
-    let config = candle_swin::swin_transformer::SwinTransformerConfig::large();
     let model = candle_swin::SwinTransformer::new(&config, vb)?;
     let outputs = model.forward(&data["input"])?;
 
     println!("\n{}", "=".repeat(70));
-    println!("BiRefNet Swin-L Backbone: Candle vs PyTorch Error Analysis");
+    println!("{label}: Candle vs PyTorch Error Analysis");
     println!("{}\n", "=".repeat(70));
 
     for i in 0..4 {
@@ -81,5 +83,35 @@ fn analyze_birefnet_backbone_error() -> Result<()> {
         println!();
     }
 
+    Ok(())
+}
+
+#[test]
+fn analyze_all_variants() -> Result<()> {
+    analyze_variant(
+        "Swin-Tiny (random weights)",
+        "swin_tiny_full",
+        candle_swin::swin_transformer::SwinTransformerConfig::tiny(),
+    )?;
+    analyze_variant(
+        "Swin-Small (random weights)",
+        "swin_small_full",
+        candle_swin::swin_transformer::SwinTransformerConfig::small(),
+    )?;
+    analyze_variant(
+        "Swin-Base (random weights)",
+        "swin_base_full",
+        candle_swin::swin_transformer::SwinTransformerConfig::base(),
+    )?;
+    analyze_variant(
+        "Swin-Large (random weights)",
+        "swin_large_full",
+        candle_swin::swin_transformer::SwinTransformerConfig::large(),
+    )?;
+    analyze_variant(
+        "BiRefNet Swin-L (pretrained weights)",
+        "birefnet_swin_backbone",
+        candle_swin::swin_transformer::SwinTransformerConfig::large(),
+    )?;
     Ok(())
 }

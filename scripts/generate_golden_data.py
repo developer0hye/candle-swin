@@ -240,15 +240,24 @@ def generate_swin_block_shifted():
     })
 
 
-def generate_swin_tiny_full():
-    """Test full SwinTransformer tiny with small input (64x64 for speed)."""
+SWIN_VARIANTS = {
+    "tiny":  dict(embed_dim=96,  depths=[2, 2, 6, 2],  num_heads=[3, 6, 12, 24],  window_size=7,  input_size=56),
+    "small": dict(embed_dim=96,  depths=[2, 2, 18, 2], num_heads=[3, 6, 12, 24],  window_size=7,  input_size=56),
+    "base":  dict(embed_dim=128, depths=[2, 2, 18, 2], num_heads=[4, 8, 16, 32],  window_size=12, input_size=48),
+    "large": dict(embed_dim=192, depths=[2, 2, 18, 2], num_heads=[6, 12, 24, 48], window_size=12, input_size=48),
+}
+
+
+def generate_swin_variant(variant_name: str):
+    """Test full SwinTransformer with the official config for a given variant."""
+    cfg = SWIN_VARIANTS[variant_name]
     model = SwinTransformer(
         patch_size=4,
         in_channels=3,
-        embed_dim=96,
-        depths=[2, 2, 2, 2],  # Reduced depths for test speed
-        num_heads=[3, 6, 12, 24],
-        window_size=7,
+        embed_dim=cfg["embed_dim"],
+        depths=cfg["depths"],
+        num_heads=cfg["num_heads"],
+        window_size=cfg["window_size"],
         mlp_ratio=4.0,
         qkv_bias=True,
         drop_rate=0.0,
@@ -261,17 +270,22 @@ def generate_swin_tiny_full():
     )
     model.eval()
 
-    x = torch.randn(1, 3, 56, 56)
+    # Use input_size divisible by patch_size and window_size
+    sz = cfg["input_size"]
+    x = torch.randn(1, 3, sz, sz)
     with torch.no_grad():
         outs = model(x)
 
     state = model.state_dict()
     tensors = {
         "input": x,
+        "input_size": torch.tensor(sz, dtype=torch.int64),
         **{f"output_{i}": out for i, out in enumerate(outs)},
         **{f"param.{k}": v for k, v in state.items()},
     }
-    save("swin_tiny_full", tensors)
+    save(f"swin_{variant_name}_full", tensors)
+    for i, out in enumerate(outs):
+        print(f"  Stage {i}: {list(out.shape)}")
 
 
 if __name__ == "__main__":
@@ -281,5 +295,7 @@ if __name__ == "__main__":
     generate_window_attention_with_mask()
     generate_swin_block()
     generate_swin_block_shifted()
-    generate_swin_tiny_full()
+    for variant in SWIN_VARIANTS:
+        print(f"\n--- Generating {variant} ---")
+        generate_swin_variant(variant)
     print("\nAll golden test data generated successfully!")
